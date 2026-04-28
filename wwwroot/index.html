@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Project Analyzer Web</title>
+    <style>
+        body { font-family: sans-serif; margin: 40px; }
+        .container { max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+        .loading { display: none; color: blue; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>プロジェクト解析 (ZIPアップロード)</h2>
+        <form id="uploadForm">
+            <input type="file" id="zipFile" accept=".zip" required />
+            <button type="submit">解析してダウンロード</button>
+        </form>
+        <p class="loading" id="loadingText">解析中... しばらくお待ちください。</p>
+        <p id="message"></p>
+    </div>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fileInput = document.getElementById('zipFile');
+            if (fileInput.files.length === 0) return;
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            document.getElementById('loadingText').style.display = 'block';
+            document.getElementById('message').innerText = '';
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    // ダウンロード処理
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'AnalysisResult.zip';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                    document.getElementById('message').innerText = '成功しました！';
+                } else {
+                    const errorText = await response.text();
+                    document.getElementById('message').innerText = 'エラー: ' + errorText;
+                }
+            } catch (error) {
+                document.getElementById('message').innerText = '通信エラーが発生しました。';
+            } finally {
+                document.getElementById('loadingText').style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
