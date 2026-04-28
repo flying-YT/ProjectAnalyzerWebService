@@ -2,35 +2,262 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project Analyzer Web</title>
     <style>
-        body { font-family: sans-serif; margin: 40px; }
-        .container { max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-        .loading { display: none; color: blue; }
+        :root {
+            --primary-color: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --border-color: #e5e7eb;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: var(--card-bg);
+            width: 100%;
+            max-width: 600px;
+            padding: 32px;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        h2 {
+            margin-top: 0;
+            color: var(--text-main);
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .file-upload-wrapper {
+            position: relative;
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 40px 20px;
+            text-align: center;
+            background-color: #fafafa;
+            transition: border-color 0.3s, background-color 0.3s;
+            margin-bottom: 24px;
+        }
+
+        .file-upload-wrapper:hover {
+            border-color: var(--primary-color);
+            background-color: #f8faff;
+        }
+
+        .file-upload-wrapper input[type="file"] {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .file-upload-label {
+            font-size: 1rem;
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+
+        .file-name {
+            display: block;
+            margin-top: 10px;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .settings-container {
+            margin-bottom: 24px;
+        }
+
+        .settings-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-main);
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            background: #f9fafb;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .toggle-label {
+            display: flex;
+            align-items: center;
+            font-size: 0.95rem;
+            cursor: pointer;
+            color: var(--text-main);
+        }
+
+        .toggle-label input[type="checkbox"] {
+            appearance: none;
+            width: 44px;
+            height: 24px;
+            background-color: #d1d5db;
+            border-radius: 24px;
+            position: relative;
+            outline: none;
+            cursor: pointer;
+            margin-right: 12px;
+            transition: background-color 0.3s;
+            flex-shrink: 0;
+        }
+
+        .toggle-label input[type="checkbox"]::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background-color: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .toggle-label input[type="checkbox"]:checked {
+            background-color: var(--primary-color);
+        }
+
+        .toggle-label input[type="checkbox"]:checked::after {
+            transform: translateX(20px);
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 14px 24px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .btn-submit:hover { background-color: var(--primary-hover); }
+        .btn-submit:active { transform: scale(0.98); }
+        .btn-submit:disabled { background-color: #9ca3af; cursor: not-allowed; }
+
+        .status-container {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        .loading {
+            display: none;
+            color: var(--primary-color);
+        }
+
+        .message { margin-top: 10px; }
+        .message.success { color: #10b981; }
+        .message.error { color: #ef4444; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>プロジェクト解析 (ZIPアップロード)</h2>
+        <h2>プロジェクト解析</h2>
         <form id="uploadForm">
-            <input type="file" id="zipFile" accept=".zip" required />
-            <button type="submit">解析してダウンロード</button>
+            <div class="file-upload-wrapper">
+                <input type="file" id="zipFile" accept=".zip" required />
+                <div class="file-upload-label">
+                    📁 ZIPファイルをドラッグ＆ドロップ、またはクリックして選択
+                </div>
+                <span id="fileNameDisplay" class="file-name"></span>
+            </div>
+
+            <div class="settings-container">
+                <div class="settings-title">解析オプション</div>
+                <div class="settings-grid">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="omitCodeBlockTicks" checked>
+                        コードブロック記号の省略
+                    </label>
+                    <label class="toggle-label">
+                        <input type="checkbox" id="outputPerFile" checked>
+                        ファイルごとの出力
+                    </label>
+                    <label class="toggle-label">
+                        <input type="checkbox" id="sanitizeHtmlTags" checked>
+                        HTMLタグのサニタイズ
+                    </label>
+                    <label class="toggle-label">
+                        <input type="checkbox" id="removeIndent" checked>
+                        インデントの削除
+                    </label>
+                    <label class="toggle-label">
+                        <input type="checkbox" id="enableOcr" checked>
+                        OCRの有効化
+                    </label>
+                </div>
+            </div>
+
+            <button type="submit" id="submitBtn" class="btn-submit">解析してダウンロード</button>
         </form>
-        <p class="loading" id="loadingText">解析中... しばらくお待ちください。</p>
-        <p id="message"></p>
+
+        <div class="status-container">
+            <div class="loading" id="loadingText">解析中... しばらくお待ちください。</div>
+            <div id="message" class="message"></div>
+        </div>
     </div>
 
     <script>
+        // 選択されたファイル名を表示する処理
+        document.getElementById('zipFile').addEventListener('change', function(e) {
+            const fileName = e.target.files[0]?.name || '';
+            document.getElementById('fileNameDisplay').textContent = fileName;
+        });
+
+        // フォーム送信処理
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const fileInput = document.getElementById('zipFile');
             if (fileInput.files.length === 0) return;
 
+            const submitBtn = document.getElementById('submitBtn');
+            const loadingText = document.getElementById('loadingText');
+            const messageEl = document.getElementById('message');
+
+            // フォームデータの構築（ファイルと各設定値の送信）
             const formData = new FormData();
             formData.append('file', fileInput.files[0]);
+            formData.append('omitCodeBlockTicks', document.getElementById('omitCodeBlockTicks').checked);
+            formData.append('outputPerFile', document.getElementById('outputPerFile').checked);
+            formData.append('sanitizeHtmlTags', document.getElementById('sanitizeHtmlTags').checked);
+            formData.append('removeIndent', document.getElementById('removeIndent').checked);
+            formData.append('enableOcr', document.getElementById('enableOcr').checked);
 
-            document.getElementById('loadingText').style.display = 'block';
-            document.getElementById('message').innerText = '';
+            // UI状態の更新
+            submitBtn.disabled = true;
+            loadingText.style.display = 'block';
+            messageEl.textContent = '';
+            messageEl.className = 'message';
 
             try {
                 const response = await fetch('/api/analyze', {
@@ -49,15 +276,20 @@
                     a.click();
                     a.remove();
                     window.URL.revokeObjectURL(url);
-                    document.getElementById('message').innerText = '成功しました！';
+                    
+                    messageEl.textContent = '解析が完了し、ダウンロードが開始されました！';
+                    messageEl.classList.add('success');
                 } else {
                     const errorText = await response.text();
-                    document.getElementById('message').innerText = 'エラー: ' + errorText;
+                    messageEl.textContent = 'エラー: ' + errorText;
+                    messageEl.classList.add('error');
                 }
             } catch (error) {
-                document.getElementById('message').innerText = '通信エラーが発生しました。';
+                messageEl.textContent = '通信エラーが発生しました。サーバーが起動しているか確認してください。';
+                messageEl.classList.add('error');
             } finally {
-                document.getElementById('loadingText').style.display = 'none';
+                submitBtn.disabled = false;
+                loadingText.style.display = 'none';
             }
         });
     </script>

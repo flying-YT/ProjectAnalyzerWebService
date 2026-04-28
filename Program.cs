@@ -11,7 +11,14 @@ var app = builder.Build();
 app.UseStaticFiles();
 
 // ZIPアップロードと分析処理のAPIエンドポイント
-app.MapPost("/api/analyze", async (IFormFile file) =>
+// フロントエンドから送信される設定値を受け取るため、[FromForm]を追加
+app.MapPost("/api/analyze", async (
+    [FromForm] IFormFile file,
+    [FromForm] bool omitCodeBlockTicks,
+    [FromForm] bool outputPerFile,
+    [FromForm] bool sanitizeHtmlTags,
+    [FromForm] bool removeIndent,
+    [FromForm] bool enableOcr) =>
 {
     if (file == null || file.Length == 0)
     {
@@ -45,17 +52,16 @@ app.MapPost("/api/analyze", async (IFormFile file) =>
         ZipFile.ExtractToDirectory(uploadZipPath, extractTargetDir);
 
         // 3. ProjectAnalyzerの設定と実行
-        // SettingsLoader.Load を使用して AnalyzerSettings を生成します
-        // ご要望に合わせて、オプション系のフラグをすべて true に設定しています
+        // 画面から受け取ったフラグを設定に反映
         var settings = SettingsLoader.Load(
             projectPath: extractTargetDir,
             outputPath: outputDir,
-            outputToFile: true,
-            omitCodeBlockTicks: true,
-            outputPerFile: true,
-            sanitizeHtmlTags: true,
-            removeIndent: true,
-            enableOcr: true
+            outputToFile: true, // これはシステム要件として固定
+            omitCodeBlockTicks: omitCodeBlockTicks,
+            outputPerFile: outputPerFile,
+            sanitizeHtmlTags: sanitizeHtmlTags,
+            removeIndent: removeIndent,
+            enableOcr: enableOcr
         );
 
         // CoreのAnalyzerを使用して解析を実行
