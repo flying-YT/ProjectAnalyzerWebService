@@ -364,3 +364,6 @@ FodyWeavers.xsd
 
 # OS specific files
 .DS_Store
+
+# publish_output
+./publish_output
