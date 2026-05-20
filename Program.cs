@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using ProjectAnalyzer.Core;
 using ProjectAnalyzer.Core.Models;
@@ -6,6 +7,9 @@ using ProjectAnalyzer.Core.Utils;
 
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
+
+// .NET環境でShift_JISなどのエンコーディングを使用できるようにプロバイダーを登録
+Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
 // 静的ファイル（HTMLなど）を配信できるようにする（wwwrootフォルダ用）
 app.UseStaticFiles();
@@ -42,14 +46,17 @@ app.MapPost("/api/analyze", async (
         Directory.CreateDirectory(extractTargetDir);
         Directory.CreateDirectory(outputDir);
 
+        // Shift_JISのエンコーディングオブジェクトを取得
+        var shiftJisEncoding = Encoding.GetEncoding("Shift_JIS");
+
         // 1. アップロードされたZIPファイルを保存
         using (var stream = new FileStream(uploadZipPath, FileMode.Create))
         {
             await file.CopyToAsync(stream);
         }
 
-        // 2. ZIPファイルを展開
-        ZipFile.ExtractToDirectory(uploadZipPath, extractTargetDir);
+        // 2. ZIPファイルを展開　第3引数にShift_JISを指定して展開時の文字化けを防ぐ
+        ZipFile.ExtractToDirectory(uploadZipPath, extractTargetDir, shiftJisEncoding);
 
         // 3. ProjectAnalyzerの設定と実行
         // 画面から受け取ったフラグを設定に反映
@@ -70,8 +77,8 @@ app.MapPost("/api/analyze", async (
             analyzer.Analyze();
         }
 
-        // 4. 出力されたMarkdownファイル群をZIP化
-        ZipFile.CreateFromDirectory(outputDir, resultZipPath);
+        // 4. 出力されたMarkdownファイル群をZIP化　圧縮時にもShift_JISを指定してWindows標準機能で解凍しやすくする
+        ZipFile.CreateFromDirectory(outputDir, resultZipPath, CompressionLevel.Optimal, false, shiftJisEncoding);
 
         // 5. ZIPファイルをメモリに読み込む（読み込み後に一時フォルダを削除するため）
         var fileBytes = await File.ReadAllBytesAsync(resultZipPath);
