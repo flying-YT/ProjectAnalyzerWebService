@@ -366,4 +366,4 @@ FodyWeavers.xsd
 .DS_Store
 
 # publish_output
-./publish_output
+publish_output/
