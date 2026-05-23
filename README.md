@@ -49,11 +49,14 @@ dotnet run
 
 このアプリケーションを Windows サーバーの IIS (Internet Information Services) にデプロイする手順は以下の通りです。
 
-### 1. サーバーの前提条件
+### 1. サーバーの前提条件 (初回デプロイ時のみ)
 
-デプロイ先のサーバーに以下がインストールされていることを確認してください。
+ASP.NET Core アプリケーションを IIS で動かすためには、サーバーに専用のモジュールをインストールする必要があります。**IIS への初回デプロイ時のみ**、以下がインストールされていることを確認し、未インストールの場合は導入してください。
+
 - **IIS** (Windows の機能の有効化からインストール)
-- **.NET 9.0 Hosting Bundle** (ASP.NET Core ランタイムと IIS 用モジュールが含まれています)
+- **[.NET 9.0 Hosting Bundle](https://dotnet.microsoft.com/download/dotnet/9.0)**
+  - ASP.NET Core アプリを IIS でホストするためのモジュール (ANCM) と .NET ランタイムが含まれる重要なパッケージです。リンク先の「ASP.NET Core Hosting Bundle」をダウンロードしてインストールしてください。
+  - **注意**: インストール完了後、コマンドプロンプト（管理者）で `net stop was /y` および `net start w3svc` を実行して、IIS を再起動しモジュールを反映させてください。
 
 ### 2. アプリケーションの発行 (Publish)
 
