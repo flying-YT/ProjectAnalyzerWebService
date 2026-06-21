@@ -178,6 +178,13 @@
         .message { margin-top: 10px; }
         .message.success { color: #10b981; }
         .message.error { color: #ef4444; }
+
+        .upload-hint {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: #6b7280;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -191,6 +198,9 @@
                 </div>
                 <span id="fileNameDisplay" class="file-name"></span>
             </div>
+            <p class="upload-hint">
+                ※ ZIPファイルの上限: 最大100MB / 展開後500MB / 10,000ファイルまで
+            </p>
 
             <div class="settings-container">
                 <div class="settings-title">解析オプション</div>
@@ -243,6 +253,14 @@
             const submitBtn = document.getElementById('submitBtn');
             const loadingText = document.getElementById('loadingText');
             const messageEl = document.getElementById('message');
+
+            // 送信前にファイルサイズの上限をチェック（サーバー側で本文受信前に遮断される前に分かりやすく通知する）
+            const MAX_UPLOAD_BYTES = 100 * 1024 * 1024; // 100MB（サーバー側設定と一致させること）
+            if (fileInput.files[0].size > MAX_UPLOAD_BYTES) {
+                messageEl.textContent = 'エラー: ファイルサイズが上限（100MB）を超えています。';
+                messageEl.className = 'message error';
+                return;
+            }
 
             // フォームデータの構築（ファイルと各設定値の送信）
             const formData = new FormData();
