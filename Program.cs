@@ -23,6 +23,34 @@ var app = builder.Build();
 // .NET環境でShift_JISなどのエンコーディングを使用できるようにプロバイダーを登録
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
+// ZIPエントリ名のデコードに使うエンコーディング（プロバイダー登録後に取得）
+var shiftJisEncoding = Encoding.GetEncoding("Shift_JIS");
+var strictUtf8Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+
+// ZIPエントリ名のエンコーディングを判定してデコードする。
+// Windowsエクスプローラ製ZIPはShift_JIS、macOS Finder製ZIPはUTF-8でファイル名を格納し、
+// どちらも言語エンコーディングフラグを立てないため、固定エンコーディングでは両環境を両立できない。
+// アーカイブをLatin1で開いて生バイトを保持し、UTF-8として妥当ならUTF-8、不正ならShift_JISとみなす。
+string DecodeZipEntryName(string rawName)
+{
+    // 0xFFを超える文字が含まれる場合は、.NETが言語エンコーディングフラグを見てUTF-8で
+    // デコード済み（=Latin1の生バイトではない）ため、そのまま使用する。
+    foreach (var ch in rawName)
+    {
+        if (ch > 0xFF) return rawName;
+    }
+
+    var rawBytes = Encoding.Latin1.GetBytes(rawName);
+    try
+    {
+        return strictUtf8Encoding.GetString(rawBytes);
+    }
+    catch (DecoderFallbackException)
+    {
+        return shiftJisEncoding.GetString(rawBytes);
+    }
+}
+
 // 静的ファイル（HTMLなど）を配信できるようにする（wwwrootフォルダ用）
 app.UseStaticFiles();
 
@@ -64,22 +92,24 @@ app.MapPost("/api/analyze", async (
         Directory.CreateDirectory(extractTargetDir);
         Directory.CreateDirectory(outputDir);
 
-        // Shift_JISのエンコーディングオブジェクトを取得
-        var shiftJisEncoding = Encoding.GetEncoding("Shift_JIS");
-
         // 1. アップロードされたZIPファイルを保存
         using (var stream = new FileStream(uploadZipPath, FileMode.Create))
         {
             await file.CopyToAsync(stream);
         }
 
-        // 2. 展開前にZIP爆弾（解凍爆弾）対策のチェックを行う
-        using (var archive = ZipFile.Open(uploadZipPath, ZipArchiveMode.Read, shiftJisEncoding))
+        // 2. ZIPを手動で展開する。エントリ名のエンコーディングを自動判定（Win=Shift_JIS / mac=UTF-8）
+        //    しつつ、ZIP爆弾対策（サイズ・件数の上限）とパストラバーサル対策を同時に行う。
+        //    Latin1で開くことで、フラグ未設定エントリのファイル名を生バイトのまま取得する。
+        using (var archive = ZipFile.Open(uploadZipPath, ZipArchiveMode.Read, Encoding.Latin1))
         {
             if (archive.Entries.Count > MaxEntryCount)
             {
                 return Results.BadRequest("ZIP内のファイル数が多すぎます。");
             }
+
+            // パストラバーサル判定の基準となる展開先ルートの絶対パス（末尾に区切り文字を付与）
+            var extractRoot = Path.GetFullPath(extractTargetDir) + Path.DirectorySeparatorChar;
 
             long totalUncompressed = 0;
             foreach (var entry in archive.Entries)
@@ -89,13 +119,29 @@ app.MapPost("/api/analyze", async (
                 {
                     return Results.BadRequest("展開後のサイズが上限を超えています。");
                 }
+
+                var decodedName = DecodeZipEntryName(entry.FullName);
+
+                // パストラバーサル対策：展開先ルート配下に収まることを検証
+                var destinationPath = Path.GetFullPath(Path.Combine(extractTargetDir, decodedName));
+                if (!destinationPath.StartsWith(extractRoot, StringComparison.Ordinal))
+                {
+                    return Results.BadRequest("不正なパスを含むエントリが含まれています。");
+                }
+
+                // ディレクトリエントリ（名前が区切り文字で終わる）は作成のみ
+                if (decodedName.EndsWith('/') || decodedName.EndsWith('\\'))
+                {
+                    Directory.CreateDirectory(destinationPath);
+                    continue;
+                }
+
+                Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+                entry.ExtractToFile(destinationPath, overwrite: true);
             }
         }
 
-        // 3. ZIPファイルを展開　第3引数にShift_JISを指定して展開時の文字化けを防ぐ
-        ZipFile.ExtractToDirectory(uploadZipPath, extractTargetDir, shiftJisEncoding);
-
-        // 4. ProjectAnalyzerの設定と実行
+        // 3. ProjectAnalyzerの設定と実行
         // 画面から受け取ったフラグを設定に反映
         var settings = SettingsLoader.Load(
             projectPath: extractTargetDir,
@@ -114,10 +160,13 @@ app.MapPost("/api/analyze", async (
             analyzer.Analyze();
         }
 
-        // 5. 出力されたMarkdownファイル群をZIP化　圧縮時にもShift_JISを指定してWindows標準機能で解凍しやすくする
-        ZipFile.CreateFromDirectory(outputDir, resultZipPath, CompressionLevel.Optimal, false, shiftJisEncoding);
+        // 4. 出力されたMarkdownファイル群をZIP化する。
+        //    エンコーディングを指定しない（null）ことで、非ASCIIのファイル名はUTF-8で書き込まれ、
+        //    言語エンコーディングフラグも付与される。これによりmacOSと最新Windowsの双方で
+        //    正しく解凍できる（クロスプラットフォーム対応）。
+        ZipFile.CreateFromDirectory(outputDir, resultZipPath, CompressionLevel.Optimal, includeBaseDirectory: false);
 
-        // 6. 結果ZIPをストリームとして返す（メモリ全読みを避ける）
+        // 5. 結果ZIPをストリームとして返す（メモリ全読みを避ける）
         //    FileOptions.DeleteOnClose により、レスポンス送信完了後にファイルが自動削除される
         var resultStream = new FileStream(
             resultZipPath, FileMode.Open, FileAccess.Read, FileShare.None,
