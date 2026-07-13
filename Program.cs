@@ -20,6 +20,22 @@ builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(optio
 
 var app = builder.Build();
 
+// リクエストボディの上限をリクエスト単位で明示的に引き上げる。
+// IISインプロセスホスティングではKestrelのMaxRequestBodySize設定は無視され、
+// 既定の約28.6MB(30,000,000バイト)を超えるとサーバー層でHTTP 413が返る。
+// このFeatureはKestrel・IIS(インプロセス)双方が実装しており、ボディ読み取り前に
+// 設定することで両環境で上限を統一できる（[RequestSizeLimit]と同じ仕組み）。
+// なおIIS自体のリクエストフィルタリング上限(maxAllowedContentLength)はweb.config側で別途設定する。
+app.Use(async (context, next) =>
+{
+    var maxBodySizeFeature = context.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>();
+    if (maxBodySizeFeature is { IsReadOnly: false })
+    {
+        maxBodySizeFeature.MaxRequestBodySize = MaxUploadBytes;
+    }
+    await next();
+});
+
 // .NET環境でShift_JISなどのエンコーディングを使用できるようにプロバイダーを登録
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
