@@ -91,3 +91,29 @@ ASP.NET Core アプリケーションは IIS のマネージドコードに依�
 ### 6. 動作確認
 
 ブラウザからサーバーの URL (設定したポート番号) にアクセスし、フロントエンドの画面が表示されること、および ZIP ファイルの解析が正常に行えることを確認します。
+
+---
+
+## アップロードサイズの上限について
+
+大きな ZIP ファイルをアップロードした際に、以下のような IIS のエラー画面が表示されることがあります。
+
+> エラー: 要求のエンティティが大きすぎるため、ページを表示できませんでした。
+
+これは HTTP 404.13 (Request Filtering: Content length too large) で、リクエストサイズが上限を超えたときに **アプリケーションに到達する前に IIS が返す** ものです。本アプリのアップロード上限は **100MB** で、これを実現するために以下の 3 か所を設定しています。上限を変更する場合はすべて同じ値に揃えてください。
+
+| 制限層 | 設定箇所 | 既定値 | 本アプリの設定値 |
+| --- | --- | --- | --- |
+| IIS リクエストフィルタリング | `web.config` の `maxAllowedContentLength` | 30,000,000 バイト (≒28.6MB) | 104,857,600 バイト (100MB) |
+| アプリ (Kestrel / IIS インプロセス) | `Program.cs` の `MaxUploadBytes` | 30,000,000 バイト (≒28.6MB) | 104,857,600 バイト (100MB) |
+| フォーム (multipart) | `Program.cs` の `MaxUploadBytes` | 128MB | 104,857,600 バイト (100MB) |
+
+### 上限を変更する手順
+
+1. **アプリ側**: [`Program.cs`](Program.cs) 先頭の `MaxUploadBytes` を変更します。これにより Kestrel・IIS インプロセス（`IHttpMaxRequestBodySizeFeature` 経由）・フォーム制限が一括で変わります。
+2. **IIS 側**: プロジェクトルートの [`web.config`](web.config) 内 `requestLimits` の `maxAllowedContentLength`（バイト単位）を同じ値に変更します。
+   - この `web.config` は発行 (`dotnet publish`) 時に IIS 用へ自動変換されますが、`requestFiltering` の設定は保持されるため、**再発行のたびに手作業で編集する必要はありません**。
+
+> **補足 (IIS インプロセスホスティング)**: `hostingModel="inprocess"` では Kestrel の `MaxRequestBodySize` 設定は無視されます。本アプリはこの制約に対応するため、リクエスト単位で上限を設定するミドルウェア（`IHttpMaxRequestBodySizeFeature`）を用いており、Kestrel と IIS の双方で同じ上限が適用されます。
+
+> **注意**: 発行済みフォルダを IIS サーバー上で直接運用しており、`web.config` を手動で編集した場合は、`maxAllowedContentLength` の変更のみであれば IIS の再起動は不要です（数十秒で反映されます）。IIS マネージャーの「要求フィルター」→「機能設定の編集」からも同じ値を設定できます。
