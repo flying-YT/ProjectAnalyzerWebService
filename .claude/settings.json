@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git ls-remote *)",
+      "Bash(git push *)",
+      "Bash(gh issue create --title 'セキュリティ: ZIP展開処理の脆弱性対応（ZIP爆弾・メモリ枯渇・情報漏えい）' --body ' *)",
+      "Bash(dotnet build *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(gh issue comment 4 --body ' *)",
+      "Bash(gh pr create --base main --head dev --title 'セキュリティ対応: ZIP処理の脆弱性修正と上限の周知（dev → main）' --body ' *)"
+    ]
+  }
+}
