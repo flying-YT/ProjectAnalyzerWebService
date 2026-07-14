@@ -63,9 +63,11 @@ ASP.NET Core アプリケーションを IIS で動かすためには、サー�
 開発環境のコマンドプロンプトまたはターミナルで、プロジェクトのルートディレクトリに移動し、以下のコマンドを実行して発行済みファイルを作成します。
 
 ```bash
-dotnet publish -c Release -o ./publish_output
+dotnet publish ProjectAnalyzerWebService.csproj -c Release -o ./publish_output
 ```
 これにより、`publish_output` フォルダ内にデプロイに必要なすべてのファイルが生成されます。
+
+> **補足**: 発行先の `publish_output` はプロジェクト配下にあるため、`.csproj` を明示的に対象にしています（ソリューションを対象にすると `NETSDK1194` の警告が出ます）。また `publish_output` は `.gitignore` およびプロジェクトの `DefaultItemExcludes` で除外しているため、再発行を繰り返してもフォルダが入れ子にならず、コミット対象にもなりません。
 
 ### 3. ファイルの配置
 
