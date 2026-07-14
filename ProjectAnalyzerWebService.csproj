@@ -4,6 +4,10 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- 発行先(publish_output)をプロジェクト配下に置くため、既定のアイテムglob(Content等)から除外する。
+         除外しないと発行のたびに publish_output の中身が次の出力へ再帰コピーされ、
+         入れ子化(publish_output/publish_output/...)して MSB3030 でビルドが失敗する。 -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);publish_output/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
