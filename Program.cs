@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO.Compression;
 using System.Text;
 using Microsoft.AspNetCore.Mvc;
@@ -79,11 +80,20 @@ app.MapPost("/api/analyze", async (
     [FromForm] bool sanitizeHtmlTags,
     [FromForm] bool removeIndent,
     [FromForm] bool enableOcr,
+    // 数値ではなく文字列で受け取り、InvariantCultureで解釈する。
+    // double へ直接バインドするとサーバーのカレントカルチャ依存となり、
+    // 小数点にカンマを使うロケールでは "0.5" が正しく解釈されないため。
+    [FromForm] string? maxOutputSizeMb,
     ILogger<Program> logger) =>
 {
     // 展開後サイズ・エントリ数の上限（ZIP爆弾対策）
     const long MaxExtractedBytes = 500L * 1024 * 1024; // 500MB
     const int MaxEntryCount = 10_000;
+
+    // 出力Markdown 1ファイルあたりの分割しきい値（MB）の許容範囲。
+    // 画面側の input[min/max] と同じ値に揃えること。
+    const double MinOutputSizeMb = 0.5;
+    const double MaxOutputSizeMb = 50.0;
 
     if (file == null || file.Length == 0)
     {
@@ -93,6 +103,21 @@ app.MapPost("/api/analyze", async (
     if (!file.FileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
     {
         return Results.BadRequest("ZIPファイルをアップロードしてください。");
+    }
+
+    // 分割しきい値をバイトへ換算する。未指定・範囲外の場合はCore側の既定値(4MB)を使う。
+    // Coreは0以下を既定値へ丸めるが、極端に小さい値でも分割が細切れになるため画面と同じ範囲で検証する。
+    long maxOutputSize = AnalyzerSettings.DefaultMaxOutputSize;
+    if (!string.IsNullOrWhiteSpace(maxOutputSizeMb))
+    {
+        if (!double.TryParse(maxOutputSizeMb, NumberStyles.Float, CultureInfo.InvariantCulture, out var requestedMb)
+            || requestedMb < MinOutputSizeMb
+            || requestedMb > MaxOutputSizeMb)
+        {
+            return Results.BadRequest($"出力ファイルの分割サイズは {MinOutputSizeMb}～{MaxOutputSizeMb} MB の範囲で指定してください。");
+        }
+
+        maxOutputSize = (long)(requestedMb * 1024 * 1024);
     }
 
     // 作業用の一時ディレクトリを作成
@@ -167,7 +192,10 @@ app.MapPost("/api/analyze", async (
             outputPerFile: outputPerFile,
             sanitizeHtmlTags: sanitizeHtmlTags,
             removeIndent: removeIndent,
-            enableOcr: enableOcr
+            enableOcr: enableOcr,
+            // 出力Markdownが大きい場合にセクション（Excelのシート／PowerPointのスライド／Wordの見出し）
+            // 単位で分割するしきい値。NotebookLM等の1ソースあたりの上限に合わせて調整する。
+            maxOutputSize: maxOutputSize
         );
 
         // CoreのAnalyzerを使用して解析を実行

@@ -95,8 +95,9 @@
 
         .settings-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
+            /* min() を挟まないと、狭い画面で列の最小幅(240px)がコンテナ幅を押し広げてしまう */
+            grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+            gap: 18px;
             background: #f9fafb;
             padding: 20px;
             border-radius: 8px;
@@ -109,6 +110,19 @@
             font-size: 0.95rem;
             cursor: pointer;
             color: var(--text-main);
+        }
+
+        /* オプション1件分（トグル＋説明文）のまとまり */
+        .option-item {
+            min-width: 0;
+        }
+
+        /* トグル下に常時表示する短い説明。詳細はツールチップ側に置く */
+        .option-desc {
+            margin: 6px 0 0 56px; /* トグル幅(44px)＋余白(12px)に合わせて字下げ */
+            font-size: 0.78rem;
+            line-height: 1.5;
+            color: var(--text-muted);
         }
 
         .toggle-label input[type="checkbox"] {
@@ -144,6 +158,228 @@
 
         .toggle-label input[type="checkbox"]:checked::after {
             transform: translateX(20px);
+        }
+
+        /* --- ヘルプ用ツールチップ ---
+           マウスオーバーに加えてキーボードフォーカス(tabindex)とタップでも開けるよう、
+           :hover / :focus / :focus-within の3条件で表示する（タッチ端末はhoverが効かないため）。 */
+        .help-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            margin-left: 6px;
+            border-radius: 50%;
+            background-color: #d1d5db;
+            color: #ffffff;
+            font-size: 0.7rem;
+            font-weight: 700;
+            font-style: normal;
+            cursor: help;
+            flex-shrink: 0;
+            position: relative;
+            outline: none;
+        }
+
+        .help-icon:hover,
+        .help-icon:focus {
+            background-color: var(--primary-color);
+        }
+
+        .help-icon .tooltip-text {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            bottom: 140%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: max-content;
+            max-width: 260px;
+            padding: 10px 12px;
+            background-color: #111827;
+            color: #f9fafb;
+            font-size: 0.78rem;
+            font-weight: 400;
+            line-height: 1.6;
+            text-align: left;
+            white-space: normal;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            transition: opacity 0.15s;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* 吹き出しの三角形 */
+        .help-icon .tooltip-text::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: #111827;
+        }
+
+        .help-icon:hover .tooltip-text,
+        .help-icon:focus .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* 画面端でツールチップが見切れないよう、右端寄りの項目は右揃えにする */
+        .help-icon.tooltip-right .tooltip-text {
+            left: auto;
+            right: -8px;
+            transform: none;
+        }
+
+        .help-icon.tooltip-right .tooltip-text::after {
+            left: auto;
+            right: 10px;
+            transform: none;
+        }
+
+        /* 狭い画面ではアイコン中央基準だとツールチップが画面外へはみ出し、横スクロールが発生する。
+           位置の基準をアイコンから項目全体へ移し、項目の幅に収める。 */
+        @media (max-width: 560px) {
+            .option-item {
+                position: relative;
+            }
+
+            /* 基準を .option-item にするため、アイコン自身の position を解除する */
+            .help-icon {
+                position: static;
+            }
+
+            .help-icon .tooltip-text,
+            .help-icon.tooltip-right .tooltip-text {
+                left: 0;
+                right: auto;
+                bottom: auto;
+                top: -8px;
+                transform: translateY(-100%);
+                width: auto;
+                max-width: none;
+            }
+
+            /* 吹き出しの三角形はアイコンを指せなくなるため非表示にする */
+            .help-icon .tooltip-text::after {
+                display: none;
+            }
+        }
+
+        /* --- 数値入力（分割サイズ） --- */
+        .number-field {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            margin-left: 56px; /* トグル項目の説明文と字下げを揃える */
+        }
+
+        .number-field input[type="number"] {
+            width: 90px;
+            padding: 7px 10px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background-color: #ffffff;
+        }
+
+        .number-field input[type="number"]:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .number-field .unit {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .option-item.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .option-item.full-width .toggle-label {
+            cursor: default;
+        }
+
+        /* 数値入力の項目にはトグルがないため、トグル幅ぶんの字下げを打ち消してラベルと揃える */
+        .option-item.full-width .number-field,
+        .option-item.full-width .option-desc {
+            margin-left: 0;
+        }
+
+        /* --- 制限事項パネル --- */
+        .notes {
+            margin-top: 24px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: #f9fafb;
+            font-size: 0.85rem;
+        }
+
+        .notes > summary {
+            padding: 14px 16px;
+            font-weight: 600;
+            color: var(--text-main);
+            cursor: pointer;
+            list-style: none;
+            user-select: none;
+        }
+
+        .notes > summary::-webkit-details-marker { display: none; }
+
+        .notes > summary::before {
+            content: '▶';
+            display: inline-block;
+            margin-right: 8px;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            transition: transform 0.2s;
+        }
+
+        .notes[open] > summary::before {
+            transform: rotate(90deg);
+        }
+
+        .notes-body {
+            padding: 0 16px 16px;
+            color: var(--text-muted);
+            line-height: 1.8;
+        }
+
+        .notes-body h4 {
+            margin: 16px 0 6px;
+            font-size: 0.85rem;
+            color: var(--text-main);
+        }
+
+        .notes-body h4:first-child { margin-top: 0; }
+
+        .notes-body ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .notes-body code {
+            /* .projectanalyzerignore のような長い語が狭い画面で折り返せず、
+               パネルごと横に広がってしまうのを防ぐ */
+            overflow-wrap: anywhere;
+            padding: 1px 5px;
+            background-color: #e5e7eb;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: var(--text-main);
+        }
+
+        .notes-body .warn {
+            color: #b45309;
+            font-weight: 600;
         }
 
         .btn-submit {
@@ -205,26 +441,69 @@
             <div class="settings-container">
                 <div class="settings-title">解析オプション</div>
                 <div class="settings-grid">
-                    <label class="toggle-label">
-                        <input type="checkbox" id="omitCodeBlockTicks" checked>
-                        コードブロック記号の省略
-                    </label>
-                    <label class="toggle-label">
-                        <input type="checkbox" id="outputPerFile" checked>
-                        ファイルごとの出力
-                    </label>
-                    <label class="toggle-label">
-                        <input type="checkbox" id="sanitizeHtmlTags" checked>
-                        HTMLタグのサニタイズ
-                    </label>
-                    <label class="toggle-label">
-                        <input type="checkbox" id="removeIndent" checked>
-                        インデントの削除
-                    </label>
-                    <label class="toggle-label">
-                        <input type="checkbox" id="enableOcr" checked>
-                        OCRの有効化
-                    </label>
+                    <div class="option-item">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="omitCodeBlockTicks" checked>
+                            コードブロック記号の省略
+                            <i class="help-icon" tabindex="0" role="note" aria-label="コードブロック記号の省略の説明">?
+                                <span class="tooltip-text">出力Markdownから ``` を取り除きます。ONにしないと同じ内容が &lt;details&gt; 内とコードブロック内に二重出力され、容量がおよそ2倍になります。分割サイズを指定する場合はONを推奨します。</span>
+                            </i>
+                        </label>
+                        <p class="option-desc">``` を出力しません。容量の二重化を防ぎます。</p>
+                    </div>
+                    <div class="option-item">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="outputPerFile" checked>
+                            ファイルごとの出力
+                            <i class="help-icon tooltip-right" tabindex="0" role="note" aria-label="ファイルごとの出力の説明">?
+                                <span class="tooltip-text">全ファイルを1つにまとめず、元のフォルダ階層を保ったまま 01_ProjectContexts/ 以下へ1ファイル1Markdownで出力します。OFFの場合は 01_ProjectContext.md に集約されます。</span>
+                            </i>
+                        </label>
+                        <p class="option-desc">階層を保って1ファイル＝1Markdownで出力します。</p>
+                    </div>
+                    <div class="option-item">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="sanitizeHtmlTags" checked>
+                            HTMLタグのサニタイズ
+                            <i class="help-icon" tabindex="0" role="note" aria-label="HTMLタグのサニタイズの説明">?
+                                <span class="tooltip-text">&lt;details&gt; などのHTMLタグを全角の ＜details＞ に置換し、NotebookLMなどのAIがタグを解釈してしまうのを防ぎます。ソースコード中の if (a &lt; b) のような比較演算子は置換されません。</span>
+                            </i>
+                        </label>
+                        <p class="option-desc">HTMLタグを全角に置換してAIの誤解釈を防ぎます。</p>
+                    </div>
+                    <div class="option-item">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="removeIndent" checked>
+                            インデントの削除
+                            <i class="help-icon tooltip-right" tabindex="0" role="note" aria-label="インデントの削除の説明">?
+                                <span class="tooltip-text">行頭のスペース・タブをすべて削除し、4スペースがMarkdownのコードブロックとして誤解釈されるのを防ぎます。⚠️ Pythonなどインデントに構文上の意味がある言語では、コードの構造が壊れる点にご注意ください。</span>
+                            </i>
+                        </label>
+                        <p class="option-desc">行頭の空白を削除します。※Python等は要注意。</p>
+                    </div>
+                    <div class="option-item">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="enableOcr" checked>
+                            OCRの有効化
+                            <i class="help-icon" tabindex="0" role="note" aria-label="OCRの有効化の説明">?
+                                <span class="tooltip-text">Excel・Word・PowerPoint に貼り付けられた画像から、OCRで文字を抽出します。対象は Office ファイル内の画像のみで、単体の画像ファイル(.png/.jpg など)やPDFは対象外です。処理時間が大幅に伸びる場合があります。</span>
+                            </i>
+                        </label>
+                        <p class="option-desc">Office内の画像から文字を抽出します。処理は遅くなります。</p>
+                    </div>
+                    <div class="option-item full-width">
+                        <label class="toggle-label" for="maxOutputSizeMb">
+                            出力ファイルの分割サイズ
+                            <i class="help-icon" tabindex="0" role="note" aria-label="出力ファイルの分割サイズの説明">?
+                                <span class="tooltip-text">1つの出力Markdownがこのサイズを超えた場合、セクション単位（Excel=シート / PowerPoint=スライド / Word=見出し1）で分割します。セクションの途中では分割しないため、しきい値は目安です。セクションが1つしかないファイルやソースコード・テキストは分割されません。</span>
+                            </i>
+                        </label>
+                        <div class="number-field">
+                            <input type="number" id="maxOutputSizeMb" value="4" min="0.5" max="50" step="0.5">
+                            <span class="unit">MB（既定: 4MB / 0.5〜50MBの範囲）</span>
+                        </div>
+                        <p class="option-desc">NotebookLM等のアップロード上限に合わせてMarkdownを分割します。</p>
+                    </div>
                 </div>
             </div>
 
@@ -235,6 +514,56 @@
             <div class="loading" id="loadingText">解析中... しばらくお待ちください。</div>
             <div id="message" class="message"></div>
         </div>
+
+        <details class="notes">
+            <summary>制限事項・対応ファイル形式について</summary>
+            <div class="notes-body">
+                <h4>アップロードの上限</h4>
+                <ul>
+                    <li>アップロードできるのは <code>.zip</code> ファイルのみです。</li>
+                    <li>ZIPファイルのサイズ: <strong>最大100MB</strong></li>
+                    <li>展開後の合計サイズ: <strong>最大500MB</strong></li>
+                    <li>ZIP内のファイル数: <strong>最大10,000件</strong></li>
+                </ul>
+
+                <h4><span class="warn">⚠️ パスワード付きファイルは解析できません</span></h4>
+                <ul>
+                    <li><strong>暗号化ZIP</strong>（パスワード付きZIP）は展開できず、解析がエラーになります。パスワードを解除してからアップロードしてください。</li>
+                    <li>ZIP内の<strong>読み取りパスワード付きOfficeファイル</strong>（Excel / Word / PowerPoint）は開けないため、そのファイルだけ<strong>スキップ</strong>されて出力に含まれません。</li>
+                    <li>「読み取り専用推奨」や<strong>書き込みパスワードのみ</strong>のファイルは、通常どおり解析できます。</li>
+                </ul>
+
+                <h4>内容を構造化して抽出できる形式</h4>
+                <ul>
+                    <li><strong>Excel</strong>: <code>.xlsx</code> <code>.xlsm</code> <code>.xls</code>（シート単位。図形・テキストボックスは <code>.xlsx</code> <code>.xlsm</code> のみ）</li>
+                    <li><strong>Word</strong>: <code>.docx</code>（表はMarkdownのテーブルに変換されます）</li>
+                    <li><strong>PowerPoint</strong>: <code>.pptx</code>（スライド単位）</li>
+                    <li><strong>テキスト全般</strong>: ソースコード、<code>.md</code>、<code>.json</code>、<code>.xml</code>、<code>.csv</code> などのテキストファイル</li>
+                </ul>
+
+                <h4><span class="warn">処理対象外のファイル形式</span></h4>
+                <ul>
+                    <li><strong>旧形式のOffice</strong>: <code>.doc</code> <code>.ppt</code>（<code>.xls</code> のみ対応）</li>
+                    <li><strong>PDF</strong>: <code>.pdf</code> は非対応です。</li>
+                    <li><strong>単体の画像ファイル</strong>: <code>.png</code> <code>.jpg</code> <code>.gif</code> などはOCRの対象外です（OCRはOfficeファイルに<em>埋め込まれた</em>画像のみ対象）。</li>
+                    <li><strong>その他のバイナリ</strong>: 実行ファイル、動画、音声、圧縮ファイル、フォントなど。</li>
+                </ul>
+                <p>これらは内容を解釈できずテキストとして読み込まれ、出力が文字化けして無意味に肥大化します。<strong>アップロード前にZIPから除外することを強く推奨します。</strong></p>
+
+                <h4>自動的に除外されるフォルダ</h4>
+                <ul>
+                    <li><code>bin</code> / <code>obj</code> / <code>.vs</code> / <code>.git</code> は既定で除外されます。</li>
+                    <li>プロジェクト直下に <code>.projectanalyzerignore</code> を置くと、1行に1つずつ除外対象（例: <code>node_modules</code>）を追加指定できます。</li>
+                </ul>
+
+                <h4>その他</h4>
+                <ul>
+                    <li>ZIP内のファイル名は Shift_JIS / UTF-8 を自動判定するため、Windows・macOSどちらで作成したZIPも利用できます。</li>
+                    <li>アップロードされたファイルと解析結果はサーバー上の一時領域で処理され、ダウンロード完了後に自動的に削除されます。</li>
+                    <li>OCRを有効にすると処理時間が大幅に伸びます。大きなプロジェクトではタイムアウトすることがあります。</li>
+                </ul>
+            </div>
+        </details>
     </div>
 
     <script>
@@ -262,6 +591,16 @@
                 return;
             }
 
+            // 分割サイズの入力値を検証（サーバー側の許容範囲と一致させること）
+            const MIN_OUTPUT_SIZE_MB = 0.5;
+            const MAX_OUTPUT_SIZE_MB = 50;
+            const maxOutputSizeMb = parseFloat(document.getElementById('maxOutputSizeMb').value);
+            if (!Number.isFinite(maxOutputSizeMb) || maxOutputSizeMb < MIN_OUTPUT_SIZE_MB || maxOutputSizeMb > MAX_OUTPUT_SIZE_MB) {
+                messageEl.textContent = `エラー: 出力ファイルの分割サイズは ${MIN_OUTPUT_SIZE_MB}～${MAX_OUTPUT_SIZE_MB} MB の範囲で指定してください。`;
+                messageEl.className = 'message error';
+                return;
+            }
+
             // フォームデータの構築（ファイルと各設定値の送信）
             const formData = new FormData();
             formData.append('file', fileInput.files[0]);
@@ -270,6 +609,7 @@
             formData.append('sanitizeHtmlTags', document.getElementById('sanitizeHtmlTags').checked);
             formData.append('removeIndent', document.getElementById('removeIndent').checked);
             formData.append('enableOcr', document.getElementById('enableOcr').checked);
+            formData.append('maxOutputSizeMb', maxOutputSizeMb);
 
             // UI状態の更新
             submitBtn.disabled = true;
