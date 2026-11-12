@@ -536,23 +536,24 @@
                 <h4>内容を構造化して抽出できる形式</h4>
                 <ul>
                     <li><strong>Excel</strong>: <code>.xlsx</code> <code>.xlsm</code> <code>.xls</code>（シート単位。図形・テキストボックスは <code>.xlsx</code> <code>.xlsm</code> のみ）</li>
-                    <li><strong>Word</strong>: <code>.docx</code>（表はMarkdownのテーブルに変換されます）</li>
+                    <li><strong>Word</strong>: <code>.docx</code> <code>.docm</code>（表はMarkdownのテーブルに変換されます）</li>
                     <li><strong>PowerPoint</strong>: <code>.pptx</code>（スライド単位）</li>
                     <li><strong>テキスト全般</strong>: ソースコード、<code>.md</code>、<code>.json</code>、<code>.xml</code>、<code>.csv</code> などのテキストファイル</li>
                 </ul>
 
-                <h4><span class="warn">処理対象外のファイル形式</span></h4>
+                <h4><span class="warn">内容を抽出できない形式（原本をそのまま同梱）</span></h4>
                 <ul>
-                    <li><strong>旧形式のOffice</strong>: <code>.doc</code> <code>.ppt</code>（<code>.xls</code> のみ対応）</li>
-                    <li><strong>PDF</strong>: <code>.pdf</code> は非対応です。</li>
+                    <li><strong>旧形式のOffice・RTF</strong>: <code>.doc</code> <code>.ppt</code> <code>.rtf</code>（<code>.xls</code> のみ対応）</li>
+                    <li><strong>PDF</strong>: <code>.pdf</code></li>
                     <li><strong>単体の画像ファイル</strong>: <code>.png</code> <code>.jpg</code> <code>.gif</code> などはOCRの対象外です（OCRはOfficeファイルに<em>埋め込まれた</em>画像のみ対象）。</li>
                     <li><strong>その他のバイナリ</strong>: 実行ファイル、動画、音声、圧縮ファイル、フォントなど。</li>
                 </ul>
-                <p>これらは内容を解釈できずテキストとして読み込まれ、出力が文字化けして無意味に肥大化します。<strong>アップロード前にZIPから除外することを強く推奨します。</strong></p>
+                <p>これらは内容を抽出せず、<strong>原本を結果ZIP内の <code>02_SkippedFiles/</code> フォルダへ元の階層のまま同梱</strong>します（PDFなどはそのままAIツールへアップロードできます）。Markdown側には「スキップした」旨の1行だけが出力されます。原本がそのまま入るため、<strong>不要なバイナリが多いと結果ZIPが大きくなります。</strong>不要なものはアップロード前にZIPから除外するか、<code>.projectanalyzerignore</code> で除外してください。</p>
 
                 <h4>自動的に除外されるフォルダ</h4>
                 <ul>
                     <li><code>bin</code> / <code>obj</code> / <code>.vs</code> / <code>.git</code> は既定で除外されます。</li>
+                    <li>シンボリックリンクは辿らず、内容は読み込みません（フォルダツリーには注記付きで表示されます）。</li>
                     <li>プロジェクト直下に <code>.projectanalyzerignore</code> を置くと、1行に1つずつ除外対象（例: <code>node_modules</code>）を追加指定できます。</li>
                 </ul>
 

@@ -11,7 +11,7 @@ ProjectAnalyzerWebService は、アップロードされたプロジェクトの
   - `outputPerFile`: 元の階層を保ったままファイルごとに Markdown を出力します。
   - `sanitizeHtmlTags`: `<details>` などの HTML タグを全角に置換します。
   - `removeIndent`: 行頭のインデントを削除します。
-  - `enableOcr`: Office ファイルに埋め込まれた画像を OCR でテキスト化します。
+  - `enableOcr`: Office ファイルに埋め込まれた画像を OCR でテキスト化します（`ProjectAnalyzer.Core` 1.4.0 以降は PaddleOCR の PP-OCRv6 small モデルを ONNX Runtime 上で実行します）。
   - `maxOutputSizeMb`: 出力 Markdown 1 ファイルあたりの分割しきい値（MB）です。
 - **Shift_JIS 対応**: Windows 環境での文字化けを防ぐため、ZIP ファイルの展開および圧縮時に `Shift_JIS` エンコーディングを明示的に使用しています。
 - **Web フロントエンド**: `wwwroot` フォルダに配置された静的ファイル（`index.html` など）を通じて、ブラウザから簡単に解析処理を実行できる UI を提供します。各オプションには常時表示の短い説明と、マウスオーバー（タップ／キーボードフォーカスにも対応）で開く詳細ツールチップを備えています。
@@ -71,22 +71,23 @@ dotnet run
 | 区分 | 形式 |
 | --- | --- |
 | Excel | `.xlsx` `.xlsm` `.xls`（図形・テキストボックスは `.xlsx` `.xlsm` のみ） |
-| Word | `.docx`（表は Markdown のテーブルに変換） |
+| Word | `.docx` `.docm`（表は Markdown のテーブルに変換） |
 | PowerPoint | `.pptx` |
 | テキスト全般 | ソースコード、`.md`、`.json`、`.xml`、`.csv` など |
 
-### 処理対象外のファイル形式
+### 内容を抽出できない形式（原本をそのまま同梱）
 
-- 旧形式の Office: `.doc` `.ppt`（Excel は `.xls` のみ対応）
+- 旧形式の Office・RTF: `.doc` `.ppt` `.rtf`（Excel は `.xls` のみ対応）
 - PDF: `.pdf`
 - 単体の画像ファイル: `.png` `.jpg` `.gif` など（OCR は Office ファイルに**埋め込まれた**画像のみが対象）
 - その他のバイナリ: 実行ファイル、動画、音声、圧縮ファイル、フォントなど
 
-> これらは内容を解釈できずテキストとして読み込まれ、出力が文字化けして肥大化します。アップロード前に ZIP から除外することを推奨します。
+> これらは内容を抽出せず、**原本を結果 ZIP 内の `02_SkippedFiles/` フォルダへ元の階層のまま同梱**します（Markdown 側には `[Skipped: unsupported binary file ...]` の 1 行のみ出力）。原本がそのまま入るため、不要なバイナリが多いと結果 ZIP が大きくなります。不要なものはアップロード前に ZIP から除外するか、`.projectanalyzerignore` で除外してください。
 
 ### 除外設定
 
 - `bin` / `obj` / `.vs` / `.git` は既定で除外されます。
+- シンボリックリンクは辿らず、内容は読み込みません（フォルダツリーには `[symbolic link, not followed]` の注記付きで表示されます）。
 - プロジェクト直下に `.projectanalyzerignore` を置くと、1 行に 1 つずつ除外対象を追加指定できます。
 
 ---
@@ -135,6 +136,8 @@ ASP.NET Core アプリケーションは IIS のマネージドコードに依�
 1. IIS マネージャーの左側のペインで「アプリケーション プール」を選択します。
 2. 手順4で作成したサイトと同名のアプリケーションプール（例: `ProjectAnalyzerSite`）を右クリックし、「基本設定」を選択します。
 3. **.NET CLR バージョン** を **「マネージド コードなし (No Managed Code)」** に変更して「OK」をクリックします。
+4. 同じアプリケーションプールの「詳細設定」で **「32 ビット アプリケーションの有効化」** が **False** であることを確認します。
+   - OCR で使用する ONNX Runtime は 32 ビット (x86) 版のネイティブライブラリを提供していないため、True だと OCR を有効にした解析がエラーになります。
 
 ### 6. 動作確認
 
