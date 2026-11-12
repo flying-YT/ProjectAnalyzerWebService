@@ -92,6 +92,38 @@ dotnet run
 
 ---
 
+## 発行 (Publish) とリリース資材の作成
+
+本アプリは **Windows x64**（IIS）と **Linux x64** の 2 環境向けに発行します。開発環境のターミナルでプロジェクトのルートディレクトリに移動し、以下のコマンドを実行します。
+
+```bash
+# 前回の発行物が残らないよう、発行先を削除してから発行する
+rm -rf publish_output
+
+dotnet publish ProjectAnalyzerWebService.csproj -c Release -r win-x64 --self-contained false -o ./publish_output/win-x64
+dotnet publish ProjectAnalyzerWebService.csproj -c Release -r linux-x64 --self-contained false -o ./publish_output/linux-x64
+```
+
+GitHub の Release に添付する場合は、それぞれのフォルダの中身を zip にまとめます（`X.Y.Z` はリリースするバージョンに置き換えてください）。
+
+```bash
+(cd publish_output/win-x64 && zip -r ../ProjectAnalyzerWebService-vX.Y.Z-win-x64.zip .)
+(cd publish_output/linux-x64 && zip -r ../ProjectAnalyzerWebService-vX.Y.Z-linux-x64.zip .)
+```
+
+| ファイル | 対象環境 | 発行先フォルダ |
+| --- | --- | --- |
+| `ProjectAnalyzerWebService-vX.Y.Z-win-x64.zip` | Windows x64（IIS） | `publish_output/win-x64` |
+| `ProjectAnalyzerWebService-vX.Y.Z-linux-x64.zip` | Linux x64（glibc 系: Ubuntu / Debian / RHEL など） | `publish_output/linux-x64` |
+
+> **補足 (RID を指定する理由)**: OCR で使用する ONNX Runtime と SkiaSharp はネイティブライブラリを含みます。`-r`（RID）を指定せずに発行すると、iOS / Android / macOS などを含む全プラットフォーム分のネイティブライブラリが `runtimes/` 以下にコピーされ、発行物が約 400MB（zip で約 250MB）になります。RID を指定すると対象環境の分だけになり、それぞれ 70〜80MB 程度（zip で 40MB 台）に収まります。その代わり、**発行した環境以外では OCR が動作しません**（例: win-x64 版を Linux で動かすことはできません）。
+
+> **補足 (`--self-contained false`)**: .NET ランタイムは同梱せず、サーバーにインストールされたランタイムを使用します。各環境のサーバーの前提条件は、以下のデプロイ手順を参照してください。
+
+> **補足 (発行先の除外)**: 発行先の `publish_output` はプロジェクト配下にあるため、`.csproj` を明示的に対象にしています（ソリューションを対象にすると `NETSDK1194` の警告が出ます）。また `publish_output` は `.gitignore` およびプロジェクトの `DefaultItemExcludes` で除外しているため、再発行を繰り返してもフォルダが入れ子にならず、作成した zip もコミット対象になりません。
+
+---
+
 ## IIS へのデプロイ方法
 
 このアプリケーションを Windows サーバーの IIS (Internet Information Services) にデプロイする手順は以下の通りです。
@@ -105,20 +137,15 @@ ASP.NET Core アプリケーションを IIS で動かすためには、サー�
   - ASP.NET Core アプリを IIS でホストするためのモジュール (ANCM) と .NET ランタイムが含まれる重要なパッケージです。リンク先の「ASP.NET Core Hosting Bundle」をダウンロードしてインストールしてください。
   - **注意**: インストール完了後、コマンドプロンプト（管理者）で `net stop was /y` および `net start w3svc` を実行して、IIS を再起動しモジュールを反映させてください。
 
-### 2. アプリケーションの発行 (Publish)
+### 2. 資材の用意
 
-開発環境のコマンドプロンプトまたはターミナルで、プロジェクトのルートディレクトリに移動し、以下のコマンドを実行して発行済みファイルを作成します。
-
-```bash
-dotnet publish ProjectAnalyzerWebService.csproj -c Release -o ./publish_output
-```
-これにより、`publish_output` フォルダ内にデプロイに必要なすべてのファイルが生成されます。
-
-> **補足**: 発行先の `publish_output` はプロジェクト配下にあるため、`.csproj` を明示的に対象にしています（ソリューションを対象にすると `NETSDK1194` の警告が出ます）。また `publish_output` は `.gitignore` およびプロジェクトの `DefaultItemExcludes` で除外しているため、再発行を繰り返してもフォルダが入れ子にならず、コミット対象にもなりません。
+[発行 (Publish) とリリース資材の作成](#発行-publish-とリリース資材の作成) の手順で発行した `publish_output/win-x64` フォルダ、または Release からダウンロードした `ProjectAnalyzerWebService-vX.Y.Z-win-x64.zip` を用意します。
 
 ### 3. ファイルの配置
 
-生成された `publish_output` フォルダ内のすべてのファイルを、IIS サーバー上の任意の公開用フォルダ（例: `C:\inetpub\wwwroot\ProjectAnalyzer`）にコピーします。
+`publish_output/win-x64` フォルダ内（または zip を展開したフォルダ内）のすべてのファイルを、IIS サーバー上の任意の公開用フォルダ（例: `C:\inetpub\wwwroot\ProjectAnalyzer`）にコピーします。
+
+> **注意 (更新時)**: 既存のバージョンを更新する場合は、公開用フォルダの中身を**丸ごと置き換えて**ください。差分コピーでは、不要になった旧バージョンのファイルが残る場合があります。
 
 ### 4. IIS でのサイト作成
 
@@ -145,6 +172,70 @@ ASP.NET Core アプリケーションは IIS のマネージドコードに依�
 
 ---
 
+## Linux へのデプロイ方法
+
+このアプリケーションを Linux x64 サーバーで動かす手順は以下の通りです（Kestrel で直接起動します）。
+
+### 1. サーバーの前提条件 (初回デプロイ時のみ)
+
+- **[ASP.NET Core Runtime 9.0](https://learn.microsoft.com/ja-jp/dotnet/core/install/linux)** をインストールします。
+  - 例 (Ubuntu): `sudo apt-get update && sudo apt-get install -y aspnetcore-runtime-9.0`
+- OCR のネイティブライブラリは glibc 系ディストリビューション向けです。Alpine Linux などの musl 系では OCR が動作しません。
+- OCR のために Tesseract などを別途インストールする必要はありません。
+
+### 2. ファイルの配置
+
+`publish_output/linux-x64` フォルダ、または Release からダウンロードした `ProjectAnalyzerWebService-vX.Y.Z-linux-x64.zip` の中身を、サーバー上の任意のフォルダ（例: `/opt/projectanalyzer`）に配置します。
+
+```bash
+sudo mkdir -p /opt/projectanalyzer
+sudo unzip ProjectAnalyzerWebService-vX.Y.Z-linux-x64.zip -d /opt/projectanalyzer
+```
+
+> **注意 (更新時)**: 既存のバージョンを更新する場合は、フォルダの中身を**丸ごと置き換えて**ください。
+
+### 3. 起動
+
+待ち受けるアドレスとポートを `ASPNETCORE_URLS` で指定して起動します。
+
+```bash
+cd /opt/projectanalyzer
+ASPNETCORE_URLS=http://0.0.0.0:5000 dotnet ProjectAnalyzerWebService.dll
+```
+
+常駐させる場合は systemd のサービスとして登録します。以下は設定例です（`User` は環境に合わせて変更してください）。
+
+```ini
+# /etc/systemd/system/projectanalyzer.service
+[Unit]
+Description=ProjectAnalyzerWebService
+
+[Service]
+WorkingDirectory=/opt/projectanalyzer
+ExecStart=/usr/bin/dotnet /opt/projectanalyzer/ProjectAnalyzerWebService.dll
+Environment=ASPNETCORE_URLS=http://0.0.0.0:5000
+Restart=always
+User=www-data
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now projectanalyzer
+```
+
+> **補足**: 解析処理では OS の一時フォルダ（通常は `/tmp`）を作業領域として使用します。展開後のサイズは最大 500MB になるため、一時フォルダに十分な空き容量を確保してください。
+
+### 4. 動作確認
+
+ブラウザから `http://<サーバーのアドレス>:5000` にアクセスし、フロントエンドの画面が表示されること、および ZIP ファイルの解析が正常に行えることを確認します。
+
+> **補足 (リバースプロキシ)**: nginx などのリバースプロキシを前段に置く場合は、プロキシ側のリクエストサイズ上限もアップロード上限 (100MB) 以上にしてください（例: nginx の `client_max_body_size 100m;`）。上限が小さいと、アプリに到達する前に HTTP 413 が返ります。
+
+---
+
 ## アップロードサイズの上限について
 
 大きな ZIP ファイルをアップロードした際に、以下のような IIS のエラー画面が表示されることがあります。
@@ -164,6 +255,8 @@ ASP.NET Core アプリケーションは IIS のマネージドコードに依�
 1. **アプリ側**: [`Program.cs`](Program.cs) 先頭の `MaxUploadBytes` を変更します。これにより Kestrel・IIS インプロセス（`IHttpMaxRequestBodySizeFeature` 経由）・フォーム制限が一括で変わります。
 2. **IIS 側**: プロジェクトルートの [`web.config`](web.config) 内 `requestLimits` の `maxAllowedContentLength`（バイト単位）を同じ値に変更します。
    - この `web.config` は発行 (`dotnet publish`) 時に IIS 用へ自動変換されますが、`requestFiltering` の設定は保持されるため、**再発行のたびに手作業で編集する必要はありません**。
+
+> **補足 (Linux)**: Linux では `web.config` は使用されず（linux-x64 版の発行物には含まれません）、アプリ側の `MaxUploadBytes` のみが適用されます。リバースプロキシを使う場合は、プロキシ側の上限も合わせてください。
 
 > **補足 (IIS インプロセスホスティング)**: `hostingModel="inprocess"` では Kestrel の `MaxRequestBodySize` 設定は無視されます。本アプリはこの制約に対応するため、リクエスト単位で上限を設定するミドルウェア（`IHttpMaxRequestBodySizeFeature`）を用いており、Kestrel と IIS の双方で同じ上限が適用されます。
 
